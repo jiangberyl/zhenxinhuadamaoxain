@@ -958,15 +958,19 @@ const PORTRAITS = {
 let _currentPortrait = 'xien.png';
 
 /* 切换立绘到指定场景。scene 为 PORTRAITS 的键；找不到图则保持/回退默认。 */
-function setPortrait(scene = 'default') {
+/* 按场景挑一张立绘文件名：多图时随机，且尽量避开当前正在展示的那张 */
+function pickPortrait(scene = 'default') {
   const list = PORTRAITS[scene] && PORTRAITS[scene].length ? PORTRAITS[scene] : PORTRAITS.default;
-  // 一个场景有多张图时随机出；且尽量避开与当前正在展示的同一张，保证每次切换都有变化
   let candidates = list;
   if (list.length > 1) {
     const others = list.filter(f => f !== _currentPortrait);
     if (others.length) candidates = others;
   }
-  const file = rand(candidates);
+  return rand(candidates);
+}
+
+function setPortrait(scene = 'default') {
+  const file = pickPortrait(scene);
   const url = 'assets/' + file;
   // 预加载，加载成功才切换；失败则回退默认图
   const img = new Image();
@@ -975,6 +979,28 @@ function setPortrait(scene = 'default') {
     if (file !== 'xien.png') applyPortrait('assets/xien.png', 'xien.png');
   };
   img.src = url;
+}
+
+/* 即时换图：预加载完成后「直接」贴图、不做淡入淡出（用于剧情黑幕仍遮挡时提前换好剧情立绘）。
+   返回 Promise，调用方应在移除黑幕前 await，确保黑幕一散开就直接是剧情图，而非先闪旧图。 */
+function setPortraitInstant(scene = 'default') {
+  return new Promise(resolve => {
+    const file = pickPortrait(scene);
+    const apply = (u, f) => {
+      const el = $('#portrait');
+      if (el) {
+        _currentPortrait = f;
+        el.classList.remove('switching'); // 取消可能残留的淡出态
+        el.style.backgroundImage = `url('${u}')`;
+      }
+      resolve();
+    };
+    const url = 'assets/' + file;
+    const img = new Image();
+    img.onload = () => apply(url, file);
+    img.onerror = () => { if (file !== 'xien.png') apply('assets/xien.png', 'xien.png'); else resolve(); };
+    img.src = url;
+  });
 }
 
 function applyPortrait(url, file) {
@@ -1259,23 +1285,24 @@ function waitForScreenTap() {
    特殊剧情展示节奏：① 先直接出文字（黑幕居中，不剧透专属图）→ ② 玩家轻点关黑幕、露出专属立绘 → ③ 玩家再轻点回到主线。 */
 async function flushPendingEvent() {
   const ev = state.pendingEvent;
-  if (!ev) return;
+  if (!ev) return false;
   state.pendingEvent = null;
   // 【阈值剧情需玩家主动触发，绝不自动串播】先收掉上一句反应的对话框。
+  // ← 这一步就是「先过完前一轮游戏的图片+台词」：玩家轻点一下看完本轮反应，才开始剧情。
   if (!$('#dialog-area').classList.contains('is-hidden')) {
     await waitForTap();
   } else {
     await sleep(350);
   }
   clearAction();
-  // ① 先直接出文字：黑色半透明铺满屏幕、文案居中显示（此刻不切立绘、不剧透专属图）
+  // ① 先出剧情文案：黑色半透明铺满屏幕、文案居中显示（此刻不切立绘、不剧透专属图）
   await showMilestoneReaction(ev, true);
-  // ② 玩家轻点关掉黑幕后，才切到该剧情的专属立绘，让玩家静静看清这张图
+  // ② 立绘已在黑幕淡出前切为剧情专属图，这里只保持对话框隐藏、静置片刻让玩家看清剧情图片
   $('#dialog-area').classList.add('is-hidden');
-  if (ev.portrait) setPortrait(ev.portrait);
   await sleep(450);
-  // ③ 在干净的立绘上再等玩家轻点一下 → 回到主线
+  // ③ 在干净的剧情立绘上再等玩家轻点一下 → 直接进入新一轮（外层不再重复等待点击）
   await waitForScreenTap();
+  return true;
 }
 
 /* 根据当前数值返回席恩的「情绪基调」，用于离线台词强度选择 */
@@ -1439,8 +1466,12 @@ async function showMilestoneReaction(ev, waitTap = true) {
       setTimeout(() => ov.addEventListener('click', handler), 220);
     });
   }
+  // 玩家点击后、黑幕淡出前，先在黑幕遮挡下「同步」切好剧情专属立绘：
+  // 必须 await 到剧情图真正贴上去，再散开黑幕，否则黑幕会先散开、露出上一轮旧图，
+  // 等图片异步加载完才切换 —— 那正是「先出原来的图片」的根因。
+  if (ev.portrait) await setPortraitInstant(ev.portrait);
   ov.classList.remove('show');
-  await sleep(520); // 等黑幕淡出完成，露出立绘
+  await sleep(520); // 等黑幕淡出完成，此时露出的已经直接是剧情立绘
 }
 
 /* 对话框退场：隐形但保留占位（不清内容、不脱离文档流），让选项区位置保持不动 */
@@ -2454,9 +2485,10 @@ async function reactAndContinue(context, reactFn, userText, skipUserLog) {
   await showReaction(res.narration, res.line, false);
   // 台词刚落，数值随即升降（此刻玩家正盯着对话，时机最贴）
   applyDelta(res.delta || { heart: 0, sanity: 0, control: 0 });
-  await flushPendingEvent(); // 若数值跨过阈值，插播一段剧情转折
+  const storyPlayed = await flushPendingEvent(); // 若数值跨过阈值，插播一段剧情转折
   // —— 玩家轻点一下，才进入选择阶段（对话与选择分页，避免挡脸） ——
-  await waitForTap();
+  // 若刚插播了剧情：看完剧情立绘那一下轻点即直接进入新一轮，不再多等一次点击。
+  if (!storyPlayed) await waitForTap();
   renderChatPhase();
 }
 
