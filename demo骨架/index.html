@@ -1008,11 +1008,11 @@ function applyPortrait(url, file) {
   const el = $('#portrait');
   if (!el) return;
   _currentPortrait = file;
-  el.classList.add('switching');           // 淡出
-  setTimeout(() => {
-    el.style.backgroundImage = `url('${url}')`;
-    el.classList.remove('switching');       // 淡入
-  }, 220);
+  // 直接切到新图：图片已在 setPortrait 里用 new Image() 预加载命中缓存，
+  // 因此无需再「先淡出旧图、220ms 后才换」——那正是玩家点完后「先看到原来的图片、
+  // 再慢慢变成剧情图」的根因。这里一次性贴上新图，点完即直接是剧情对应立绘。
+  el.classList.remove('switching');        // 清掉可能残留的淡出态
+  el.style.backgroundImage = `url('${url}')`;
 }
 
 /* 回到默认立绘（平时态） */
