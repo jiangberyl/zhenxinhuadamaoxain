@@ -2,6 +2,12 @@
 
 一个跑在浏览器里的剧情向猜拳 + 真心话大冒险游戏。前端是单 HTML + 原生 JS，后端用 Node.js 调大模型做内容生成与安审。
 
+## 在线体验
+
+**纯前端版（无需后端，直接玩）：** [https://jiangberyl.github.io/zhenxinhuadamaoxain/](https://jiangberyl.github.io/zhenxinhuadamaoxain/)
+
+> 部署在 GitHub Pages（`gh-pages` 分支）。剧情、题库、立绘全内置，开箱即玩。手机端建议竖屏访问。
+
 ## 项目结构
 
 ```
@@ -44,8 +50,11 @@ PORT=3000
 
 ## 部署
 
-- **后端**：Node.js 服务（不能直接放 GitHub Pages）
-- **前端**：`demo骨架/index.html` 单文件，含所有 CSS/JS
+- **纯前端版（已上线）**：[https://jiangberyl.github.io/zhenxinhuadamaoxain/](https://jiangberyl.github.io/zhenxinhuadamaoxain/)
+  - 部署在 `gh-pages` 分支，内容为 `index.html` + `assets/`，剧情与题库全内置，不依赖后端
+- **完整版（含 LLM 动态生成）**：需自建 Node.js 服务
+  - **后端**：`server.js`（Express + 调 LLM），不能直接放 GitHub Pages
+  - **前端**：`demo骨架/index.html` 单文件，含所有 CSS/JS
 
 ## 安审
 
