@@ -1,0 +1,35 @@
+# 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量（含真实 API Key，已确认推私有仓库；建议推完去 chudian 官网重置 key）
+# .env
+# 如果需要从仓库移除 .env，解除本行注释后再提交
+
+# 运行日志
+server.log
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+tmp/
+temp/
+.cache/
+
+# 系统构建产物（保留占位以备后用）
+# build/
+# dist/

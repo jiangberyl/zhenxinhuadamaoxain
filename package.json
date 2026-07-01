@@ -1,0 +1,14 @@
+{
+  "name": "truth-or-dare-with-xien",
+  "version": "1.0.0",
+  "description": "和AI执事席恩一起玩真心话大冒险",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
