@@ -449,6 +449,22 @@ body{ display:flex; align-items:center; justify-content:center; }
 .threshold-overlay.show .th-quote{ animation-delay:.85s;}
 @keyframes thSeg{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
 
+/* ===== 背景音乐 静音开关（固定在右下角落，玻璃质感圆钮，跨所有页面常驻） ===== */
+.bgm-toggle{ position:fixed; right:14px; bottom:14px; z-index:60;
+  width:40px; height:40px; border-radius:50%; border:1px solid rgba(201,163,94,.5);
+  background:rgba(20,12,14,.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  color:var(--gold,#c9a35e); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; padding:0; box-shadow:0 2px 10px rgba(0,0,0,.35); transition:transform .18s ease, opacity .18s ease; opacity:.82;}
+.bgm-toggle:hover{ transform:scale(1.06); opacity:1;}
+.bgm-toggle:active{ transform:scale(.94);}
+.bgm-toggle svg{ width:20px; height:20px; display:block;}
+.bgm-toggle .ico-off{ display:none;}
+.bgm-toggle.muted{ color:rgba(246,236,223,.55); border-color:rgba(246,236,223,.28);}
+.bgm-toggle.muted .ico-on{ display:none;}
+.bgm-toggle.muted .ico-off{ display:block;}
+/* 未播放时轻微呼吸提示，引导玩家开启 */
+@keyframes bgmPulse{0%,100%{box-shadow:0 2px 10px rgba(0,0,0,.35);}50%{box-shadow:0 0 12px rgba(201,163,94,.55);}}
+.bgm-toggle.hint{ animation:bgmPulse 2s ease-in-out infinite;}
   </style>
 </head>
 <body>
@@ -530,7 +546,7 @@ body{ display:flex; align-items:center; justify-content:center; }
     <section id="screen-ending" class="screen ending">
       <div class="ending-inner">
         <div class="ending-head">今夜专属卡片</div>
-        <div class="ending-subhead">由这一夜，为你一个人定制</div>
+        <div class="ending-subhead">这一夜，只为你一人而写</div>
 
         <!-- ===== 可翻转收藏卡：正面立绘大图 / 背面数值文案，轻点整张卡片 3D 翻面 ===== -->
         <div class="card-flip" id="cardFlip">
@@ -608,6 +624,13 @@ body{ display:flex; align-items:center; justify-content:center; }
       </div>
     </div>
   </div>
+
+  <!-- ===== 背景音乐：暧昧回声（循环播放，首次交互后自动开启，可静音） ===== -->
+  <audio id="bgm" src="assets/bgm.mp3" loop preload="auto"></audio>
+  <button class="bgm-toggle hint" id="bgmToggle" type="button" aria-label="背景音乐开关" title="背景音乐 开/关">
+    <svg class="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+    <svg class="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"></path><line x1="22" y1="9" x2="16" y2="15"></line><line x1="16" y1="9" x2="22" y2="15"></line></svg>
+  </button>
 
   <script>
 /* ============================================================
@@ -823,8 +846,6 @@ function buildSummaryText() {
     }
   }
 
-  lines.push(`请${cfg.bot_name}延续这一晚酒吧里暧昧危险的氛围与人设，结合上面发生过的具体情节，自然地接着和用户聊下去。`);
-
   // 拼成纯文本；去掉可能残留的 HTML 标签，控制体积（接口上限 10000 字符）
   let text = lines.filter(Boolean).join('\n').replace(/<[^>]*>/g, '');
   if (text.length > 9500) text = text.slice(0, 9500); // 留余量，确保不超 10000
@@ -914,20 +935,18 @@ function showScreen(id) {
    缺图时会自动回退到默认 xien.png，不会报错。 */
 const PORTRAITS = {
   default:   ['xien.png'],
-  win:       ['xien_custom_1.png', 'xien_dare_3.png', 'xien_win_3.png', 'xien_win_2.png', 'xien_win_1.png', 'xien_drink_1.png'], // 席恩赢
+  win:       ['xien_dare_3.png', 'xien_win_3.png', 'xien_win_2.png', 'xien_win_1.png', 'xien_drink_1.png'], // 席恩赢
   drink:     ['xien_drink_1.jpg', 'xien_drink_2.png'],               // 罚一杯/喝酒惩罚
   blindfold: ['xien_blindfold_new_1.png'],                          // 蒙眼惩罚
   water:     ['xien_water_2.png'],                                  // 泼水/打湿惩罚
   hold:      ['xien_hold_1.png'],                                    // 十指相扣（尽落掌心）
-  tie:       ['xien_tie_1.png', 'xien_tie_2.png', 'xien_tie_3.png'], // 拽住领带
+  tie:       ['xien_custom_1.png'], // 拽住领带（custom_1改用途）
   kiss:      ['xien_kiss_1.png'],                                    // 留个标记（唇印）
   lemon:     ['xien_lemon_1.png', 'xien_lemon_2.png'],               // 吃柠檬
-  scare:     ['xien_scare_1.png', 'xien_scare_2.png'],               // 吓唬他
-  bind:      ['xien_custom_3.png'],                                  // 三二一不许动（束缚）
-  truth:     ['xien_truth_1.png', 'xien_truth_2.png'],               // 他的真心
+  truth:     ['xien_truth_1.png', 'xien_scare_1.png', 'xien_scare_2.png'],               // 他的真心
   listen:    ['xien_custom_2.png'],                                  // 听话三秒
   dare:      ['xien_dare_1.png', 'xien_dare_2.png', 'xien_dare_3.png'], // 玩家大冒险
-  custom:    ['xien_custom_1.png', 'xien_custom_2.png', 'xien_custom_3.png'], // 玩家自己出题惩罚（轮换）
+  custom:    ['xien_custom_2.png'], // 玩家自己出题惩罚（轮换）
   // ===== 数值阈值专属立绘 =====
   heartHigh:   ['xien_heart_high.png'],   // 心跳 ≥150：心跳失守，唇微启的渴望
   controlLow:  ['xien_control_low.png'],  // 掌控欲 ≤50：主动权易主，被反撩牵手
@@ -976,8 +995,8 @@ function resetPortrait() { setPortrait('default'); }
 function punishScene(name) {
   const map = {
     '罚一杯': 'drink', '蒙眼睛': 'blindfold', '泼水': 'water', '十指相扣': 'hold',
-    '拽住领带': 'tie', '留个标记': 'kiss', '吃柠檬': 'lemon', '吓唬他': 'scare',
-    '三二一不许动': 'bind', '他的真心': 'truth', '听话三秒': 'listen'
+    '拽住领带': 'tie', '留个标记': 'kiss', '吃柠檬': 'lemon',
+    '他的真心': 'truth', '听话三秒': 'listen'
   };
   return map[name] || null;
 }
@@ -1236,7 +1255,7 @@ function waitForScreenTap() {
 }
 
 /* 若有待播放的阈值转折事件，则插播它（在一次反应播完后调用）。
-   特殊剧情展示节奏：① 先露出无文案的专属立绘 → ② 玩家轻点 → ③ 黑色半透明铺满 + 文字居中显示。 */
+   特殊剧情展示节奏：① 先直接出文字（黑幕居中，不剧透专属图）→ ② 玩家轻点关黑幕、露出专属立绘 → ③ 玩家再轻点回到主线。 */
 async function flushPendingEvent() {
   const ev = state.pendingEvent;
   if (!ev) return;
@@ -1248,14 +1267,14 @@ async function flushPendingEvent() {
     await sleep(350);
   }
   clearAction();
-  // ① 切到特殊剧情专属立绘，画面上不出现任何文案，让玩家先静静看清这张图
+  // ① 先直接出文字：黑色半透明铺满屏幕、文案居中显示（此刻不切立绘、不剧透专属图）
+  await showMilestoneReaction(ev, true);
+  // ② 玩家轻点关掉黑幕后，才切到该剧情的专属立绘，让玩家静静看清这张图
   $('#dialog-area').classList.add('is-hidden');
   if (ev.portrait) setPortrait(ev.portrait);
   await sleep(450);
-  // ② 在干净的立绘上等玩家轻点一下
+  // ③ 在干净的立绘上再等玩家轻点一下 → 回到主线
   await waitForScreenTap();
-  // ③ 黑色半透明铺满屏幕，文字居中显示
-  await showMilestoneReaction(ev, true);
 }
 
 /* 根据当前数值返回席恩的「情绪基调」，用于离线台词强度选择 */
@@ -1344,7 +1363,9 @@ function bindTypingSkip() {
   if (!screen || screen._skipBound) return;
   screen._skipBound = true;
   screen.addEventListener('click', (e) => {
-    if (e.target.closest('.topbar') || e.target.closest('#actionArea')) return;
+    if (e.target.closest('.topbar')) return;
+    // 仅忽略真正的交互控件（出拳/选项/输入框等），底部空白区照样可点
+    if (e.target.closest('button, input, textarea, select, a')) return;
     _skipTyping = true; // 标记：本次点击用于跳过打字（若正在打字）
   });
 }
@@ -1444,8 +1465,9 @@ function waitForTap() {
     const handler = (e) => {
       // 顶部状态栏（返回/历史等按钮）的点击不算“继续”
       if (e.target.closest('.topbar')) return;
-      // 底部交互区里的按钮/输入（出拳、选项、输入框）由它们自己处理，不当作“继续”
-      if (e.target.closest('#actionArea')) return;
+      // 底部交互控件（出拳、选项、输入框）由它们自己处理，不当作“继续”；
+      // 但底部空白区域可点，实现全屏任意处轻点继续
+      if (e.target.closest('button, input, textarea, select, a')) return;
       screen.removeEventListener('click', handler);
       tip.style.display = 'none';
       clearDialog(); // 轻点后对话退场，紧接着进入选择阶段（选项时不再残留对话）
@@ -1610,33 +1632,18 @@ const SCRIPT = {
     { q: "我身上藏了一样东西。给您一分钟，用拥抱和触碰来找。规则就这些。找到了，您今晚开什么条件我都认。……怎么不动？时间可在走了。还是说——您不敢靠太近？",
       comply: { narration: "拥抱收拢的瞬间，席恩身体一僵。你的指尖从肩滑到背脊、从腰侧探到胸前，每一次试探都让他的呼吸变得更浅。信物藏在左胸内袋里，指尖擦过那里的时候，他无法分辨让心脏发狂的是那只手的距离还是您身上的温度。", line: "……找到了吗？其实藏在心口。你怎么笑了？这个位置真的很俗套吗？不过，能不能请您先松手——再抱下去，我怕我会答应一些没被问出口的事。" },
       refuse: { narration: "席恩微微张开双臂，那个姿态几乎是一种无声的邀约。坦然的，从容的，带着一点\"来呀\"的意味。您不动，他便缓缓放下手臂，将双手交叠在身前，拇指摩挲着指节，像是在抚平某种不宜被人看见的情绪。", line: "既然主人不愿意，那这个信物就继续留在我身上好了。您什么时候想拿，什么时候来取。不过我可能会换地方藏……毕竟让人惦记的感觉，比直接被找到有意思多了，不是吗？" } },
-    { q: "请您拿起这支唇笔，在我锁骨上，画下一个只属于您的记号。画好了，是留还是擦，全凭我心情……开玩笑的啦，全凭您。",
-      comply: { narration: "唇笔触上锁骨的那一刻，凉丝丝的触感让席恩的肩胛骨微微绷紧了。他垂下视线看着那道色泽鲜明的痕迹一点一点成形，心知肚明这个记号今晚不会被他擦去。", line: "……画好了？留还是擦全凭我心情？——那就留着吧。反正也只有您和我知道。" },
-      refuse: { narration: "领口大敞，锁骨在昏暗光线下画出一道清晰的弧。席恩就那么等着，看见您放下唇笔，他不急不忙地把扣子系回去，速度甚至比解开时还慢，像是在给您最后一次反悔的机会。", line: "我都已经准备好了画布，大小姐居然还不大展身手一下，真实可惜呀。不过也没关系，什么时候您想盖章宣示主权了，这块地方我给您留着，概不出租。（笑）" } },
-    { q: "纸和笔在这里。写下来——最想碰我哪里，为什么。写完念给我听。念完之后，这一分钟就是您的，一寸一寸，照着您写的兑现。……不许含糊，不许改口。白纸黑字呢。",
-      comply: { narration: "您念出那几个字的时候，席恩的耳朵先于大脑做出了反应，耳尖烫得像要燃烧。接下来的一分钟里，您的指尖一寸一寸地兑现纸上的承诺，而他全部的意志力都用在了保持呼吸平稳这一件事上。但很遗憾，他失败了。", line: "……现在我有些后悔出了这道题。不是不喜欢。是太喜欢了。——请您别让我再多说了。" },
-      refuse: { narration: "纸和笔推到面前很久了，您捏着笔迟迟没有落字，最后放了下来。席恩把那张空白的纸抽过来，对折，收进口袋，像是在收藏一个未成形的秘密。动作郑重得不像对待一张白纸。", line: "写不出来吗？没关系。白纸也好。至少证明您在这个问题前犹豫了很久。犹豫本身就已经是答案了，不是吗？" } },
-    { q: "看到这张薄卡片了吗？我会含住它，请您不许用手，只用唇把它接过去。接稳了，我再换更薄的一张……您敢，我就敢一直陪您玩下去。",
-      comply: { narration: "您凑近的那一刻，席恩全部的意识都收缩成了唇间那一张纸片的宽度，世界小到只剩下这一寸的距离。卡片被衔走的瞬间有什么东西擦过了：温度、呼吸、一触即分的柔软。只有零点几秒，却在他瞳孔深处炸出一圈涟漪。您退开时他的嘴唇还微微张着，像身体比意识慢了半拍，还停留在方才那帧画面里。他停顿了一会，仿佛在消化什么不该出现的情绪。然后他从胸前口袋里抽出另一张更薄的，含在唇间，目光抬起来看您，语调因为衔着纸片而含糊了一度。", line: "……还来吗？" },
-      refuse: { narration: "席恩的唇角衔着纸片，像一只叼着信的猫。见您似乎有些抗拒，他将卡片取下来，在指间转了一圈，放回桌上。舌尖无意识地舔过方才被纸片压着的那块唇面", line: "是我冒犯了吗？虽然很遗憾，但既然大小姐不喜欢的话，那就不要好了。毕竟，你开心对我来说才是最重要的，不是吗？" } },
     { q: "待会，我会闭上眼、卷起袖子。您要做的呢，就是用指尖蘸不同温度的水，点在我的小臂上，让我来猜冷热。我猜错的每一处，您都要用唇替我焐热。",
       comply: { narration: "第三滴落下的时候席恩犹豫了一瞬——错了。您的唇贴上小臂那块皮肤的时候，他整条手臂都僵住了。蒙着眼，看不见您的表情，反而让他的感知放大了十倍。到第五次猜错时，他已经无法确定自己到底是真的分不清冷热，还是不想分清了。", line: "……又错了？我开始怀疑您是不是故意用了同一个温度，好让我每次都猜错。……下一滴。继续吧。反正我已经放弃体面了。" },
       refuse: { narration: "袖口挽好了，眼也乖顺地闭上了。席恩在黑暗中等了很久——只有空气的温度。他睁开一只眼，看见您拿着水杯犹豫不前的样子，嘴角弯起来，带着点无奈的笑意。", line: "哎呀，我都闭好眼了等了半天了呢。看来大小姐的胆子，比我想象的要小一点哦。……是不是觉得我说的惩罚太危险了？放心，故意猜错这种事，我才不会做呢。大概。" } },
     { q: "请您闭上眼。我会从十数到一，每一声靠近您一步。中途您先睁眼或者偏头，就算您输。输了的惩罚，是需要在我的脸上落下一个吻哦。",
       comply: { narration: "您闭上眼的那一刻，席恩开始数。\"十\"——他还坐在原位。\"九\"——椅子发出轻响，他站起来了。\"八、七、六\"——脚步声越来越近，越来越轻，像刻意踩在心跳的间隙里。\"五、四\"——近到您能感觉到他带起的气流。\"三\"——温度覆上来了，不是触碰，只是一个人的体温逼近时那种无声的灼烫。\"二\"——您的睫毛颤了。剧烈地。然后您睁开了眼——对上的是席恩近在咫尺的脸。他的嘴唇离您只剩一个呼吸的距离，而他看起来……也没比您好到哪里去", line: "……您输了，差一个数。不过说实话——数到\"三\"的时候我就快撑不住了。如果您再晚睁眼一秒，输的人是谁就不好说了。现在，请兑现赌注吧。" },
       refuse: { narration: "还没开始数呢。席恩将身体重新靠回椅背，手指在扶手上轻叩了两下。那节奏像是在计算一个没能启程的倒数。他抬眼看您，目光里倒没什么责怪，反而多了一丝了然。", line: "连游戏都不敢开始吗？……不过您的选择是对的。万一您撑到最后都没睁眼。数到一时我在那么近的地方，我也不确定我会做什么。还是别试了。（笑）" } },
-    { q: "接下来一分钟，无论我在您耳边说什么——多过分、多离谱——您不许笑，不许出声。破功了的话，罚您把那句话原原本本复述一遍。当着我的面。看看您说出来是不是跟我说的一样好听。",
-      comply: { narration: "席恩侧过身，唇几乎贴着您的耳廓。第一句话落下时您咬紧了嘴唇，第二句时肩膀开始微微发颤，到第三句的时候，一声极轻的、从鼻腔溢出的笑终于泄了出来。他当即后退，目光亮得像一只得逞的猫。", line: "破功了。罚您把方才最想笑的那句复述给我听。嗯？不记得了？我提示您，是——。来，当着我的面念出来。我想听您用自己的声音说那种话。" },
-      refuse: { narration: "席恩侧过身，唇凑到您耳畔。第一个音节都酝酿好了，气息都送出去半寸了。然后看见您捂住耳朵。那口气被生生吞回去，他坐直身体，清了清嗓子，像是在处理一句被哽住的话。", line: "捂耳朵……这招确实有效。不过您知道吗？越是不让人说，那句话就越是在脑子里打转。今晚您睡觉时，如果好奇了，那就怪您自己把我的嘴堵上了。" } },
     { q: "请您和我面对面坐好。对，就这么近。怎么一直笑？严肃一点，我要开始说规则了哦。这么近的距离，谁先忍不住往前进，谁就输了，一分钟，准备开始。如果先没忍住的人是我……您今晚想要什么，我都答应。不过大小姐——我的忍耐力，可比您想象中好得多。",
       comply: { narration: "一寸。呼吸交织，温度相融——席恩的全部意志都凝聚在那一寸的距离里。十秒，三十秒，四十五秒——他看着您的唇，又看您的眼，再看您的唇。到第五十二秒的时候，他的身体像是做出了先于意识的决定——前倾了半寸。他输了。", line: "……我输了。您今晚想要什么，我都答应。但请您不要问我为什么先动，因为我不想对您撒谎说是\"不小心\"。" },
       refuse: { narration: "席恩的脸凑近时带着一点酒气——近到能感受到您退缩时带起的微弱气流。他在那个距离上停留了两秒，像是在确认您的答案，然后缓慢地退开。舌尖舔了一下忽然变得干燥的下唇", line: "不玩也好，这个游戏，我其实也没有必赢的把握，说不定我才是那个先忍不住的人。所以还是谢谢您帮我保住了面子" } },
     { q: "我闭上眼之后，您要用指尖，来描我的眉毛、鼻梁和....嘴唇。问我怎么出那么奇怪的惩罚？那当然是因为...我想让您近距离看看我的脸。",
       comply: { narration: "您的指尖当真落了下来，从眉到鼻梁，一寸寸往唇边去。席恩闭着眼受着，喉结在指腹擦过唇的一瞬滚动了一下。可就在您以为赢定的刹那，他忽然偏头，极轻地含住了那枚还停在唇边的指尖，才慢条斯理地睁开眼", line: "主人这指尖既迟迟没有要挪开的意思，在下便索性替您留下了。您赐予的东西，在下素来没有全数奉还的道理" },
       refuse: { narration: "闭着的眼等了很久，睫毛在眼睑下安静地铺开——没有指尖落下。席恩睁开眼时表情平静，但瞳孔深处有一闪而过的落差。他眨了两下，像是在适应重新涌入的光线，又像是在把某种情绪眨掉", line: "哎呀，我白闭眼了呢。但是也好，万一您描完了我真的心猿意马了，输的人就变成我了。（笑）" } },
-    { q: "请您在我耳边说一句最最最撩人的情话。让我闭眼？好吧好吧，我会照做的。我才不会耳朵红呢，红了的话……这一局的彩头，由您来定。",
-      comply: { narration: "那句话落进耳廓的时候，热度从耳尖炸开，以一种不可遏制的速度蔓延向颈侧。席恩下意识地偏头想躲——但为时已晚。您已经看见了。那两瓣耳尖红得像是要滴血，连带着颧骨都染上了一层薄粉。", line: "……被您看见了。红了？有多红？——算了别告诉我。彩头归您，想要什么都行。但这句话——请您今晚以后永远不要再说第二遍。我怕下次的反应不止是红耳朵。" },
-      refuse: { narration: "席恩偏着头，把耳侧留给您等了一刻，那句预想中的低语却没落下。他慢慢直起身，笑了一声，替自己掩过那点落空，反倒像松了半口气", line: "这一局，在下输在了自己太心急。(笑) 那句话主人便先欠着，哪一日想起来了，附到在下耳边补上就是" } },
     { q: "把手放在这里.对，我心口。接下来一分钟，您随便对我说什么。如果我的心漏跳了一拍被您察觉到，我就会告诉您一句真心话。……不过我提前警告您。有些真心话，说出来就收不回去了。您确定要听？",
       comply: { narration: "您当真把手按了上来。席恩屏住一息，所有声响都退远了，只剩掌心底下那一下下，敲得自己都心惊。他抬眼看您，唇边那句俏皮话迟到了半拍", line: "看来今天这句话是逃不掉了呢…诶，等等，主人得再凑近点，在下才会说呢" },
       refuse: { narration: "席恩听完您的婉拒，垂下眼，把扣子又系好半颗。指节在桌沿轻轻一叩，那点失落被他妥帖地藏进了执事惯有的从容里", line: "好(笑)， 您不肯按，想来我那句还没说的话，便也不必算数了" } },
@@ -1646,15 +1653,6 @@ const SCRIPT = {
     { q: "接下来，您要一直握着在下这只手，一直不许松，连去拿酒杯也得带着在下",
       comply: { narration: "席恩把手递过去，自己都几乎要笑出声。他设了一夜的惩罚游戏，绕了那样多的弯，到头来不过是为了一个能光明正大、把手交到您掌心里的借口", line: "主人猜得到吗，在下挑这条惩罚，是有私心的(笑) 在下平日不敢主动牵您的手，今夜借着\"惩罚\"二字，才好理直气壮。还请您配合在下，把这场戏演完吧" },
       refuse: { narration: "席恩听完您的婉拒，伸出去的手在半空停了一拍，又慢慢收了回来，搁回桌沿。他垂着眼把袖口理了理，那点遮得很好的失落，只在指节扣紧桌面的一瞬泄了一寸", line: "好，是在下贪心了^^这只手今夜便仍由在下自己收着，只是，您要是哪一夜想起它来，在下随时都在" } },
-    { q: "请您解开我接下来这一颗扣子，然后把手覆在我心口上……感受它为您跳得有多乱，再决定，今晚要不要对我负责。",
-      comply: { narration: "领口一松，席恩轻轻吐了口气。被解开的好像不只是扣子，还有他守了很久的那点距离", line: "唔……既然您起了头，这身衣服余下的部分，要不要也由您来？" },
-      refuse: { narration: "席恩听见您婉拒，低头把那颗险些被解开的扣子，又仔细扣回。指尖停在领口处，他笑了一下。也好，他想，他这颗跳得乱七八糟的心，今夜便仍由他一个人，妥帖地藏好", line: "不继续了么…真遗憾啊，看来只能从下一局扳回来了。主人，请" } },
-    { q: "请您主动吻上来，不许是脸颊，也不许是手背。这一次，我不躲，您也别躲，好不好？",
-      comply: { narration: "凑近、凑近、凑近，你们的心跳如两座对峙的钟楼，在深夜里敲响彼此。震荡的回音穿过血肉，唤醒沉睡千年的渴望", line: "■■■我感到大脑一阵空白" },
-      refuse: { narration: "席恩听完您的推拒，垂下眼，唇角弯了一下，弯得几乎看不出什么情绪。他抬手替自己续了半杯酒，把那句没等到回应的\"好不好\"，连同方才那点松开的勇气，一并咽了下去。", line: "好。(笑) 是在下唐突了，这道题，本就该问得轻一些。主人当它从未出口便是。下一题？" } },
-    { q: "请您贴着我坐下，让我从背后圈住您。这一分钟里谁先心跳乱了、先开口求饶，谁今晚就得答应对方一件事……敢不敢呀？",
-      comply: { narration: "席恩支着脸，慢慢端详你。他想，您坐在吧台那一头确实好看，可这种\"远着的好看\"，他今夜不想再要了", line: "按规矩，在下不该这样请您。不过今天您既然输了，便得允许在下破一次例^^" },
-      refuse: { narration: "席恩听见您婉拒，目光在那张空着的椅子上停了一刻，又缓缓挪开。他没追，只是把指间那杯酒，重新转了半圈", line: "既然今夜不能并排，那这把椅子便由它空着吧，反正它已经空这么久了" } },
   ],
   // 席恩输→玩家可选的惩罚（每轮从中随机抽 3 个展示）
   punishments: [
@@ -1667,8 +1665,6 @@ const SCRIPT = {
     { icon: '👔', name: '拽住领带', ctx: '大小姐拽住席恩的领带牵向自己，一寸寸把它解开，弄乱了他一丝不苟的仪容' },
     { icon: '🐶', name: '听话三秒', ctx: '大小姐给席恩戴上铃铛，命令他接下来乖乖听话，下巴搭在她手上' },
     { icon: '🍋', name: '吃柠檬', ctx: '大小姐喂席恩含下一片冰凉酸涩的柠檬，看他慢慢咽下去' },
-    { icon: '😼', name: '吓唬他', ctx: '大小姐挑起席恩的下颌、凉凉地贴着他喉侧，半带威胁地辖制他' },
-    { icon: '🪢', name: '三二一不许动', ctx: '大小姐用带子把席恩束缚住，命他跪好、不许乱动' },
   ],
   // 席恩输→对各惩罚的反应（versions：旁白+台词配对，doPunish 会整对随机抽取）
   punishReact: {
@@ -1743,20 +1739,6 @@ const SCRIPT = {
         { narration: "“过来吧”。听到这句话，席恩走过来靠近你身边。他仰起头，以为会触碰到炽热的呼吸。但取而代之的，是一片冰凉酸涩的柠檬", line: "酸是酸了些，但是主人给的，纵是再涩，我也想含着(笑) 您要不要看着我，把它一点点，咽下去？" },
         { narration: "这是世界上最酸的柠檬。可是酸意漫涌的瞬间，席恩忽然觉得，这点小小的难捱，因为是你给的，竟也甘之如饴", line: "奇怪，明明很酸，我却舍不得快些咽。(笑) 是主人喂得太慢了，还是说，您也不急着把手收回去呢？" },
         { narration: "席恩微微张口，含住那片柠檬。他偏要慢条斯理地尝，像借着这一口，拖长你指尖停留的时间", line: "比起草莓其实更喜欢柠檬，因为我喜欢永永远远的事情，比如…永永远远陪在您身边" },
-      ]
-    },
-    '吓唬他': {
-      versions: [
-        { narration: "你挑起他的下颌，席恩本可偏头挣开，却偏没动，反而仰头迎上你的目光", line: "身体是意识进入现实的唯一通道，而您是连接我和现实的通路。无论是用什么方式…" },
-        { narration: "凉凉的触感贴着喉侧，席恩眯了眯眼。脸上那道浅痕还醒着，他却浑不在意，倒像是嫌它落得太留情", line: "您留下的伤口，请允许在下私心多留一会儿。主人若怕我疼，不如换只手，亲自来替它赔个不是" },
-        { narration: "你轻轻一挑，席恩顺势抬头，眼底却亮着戏谑。他装作懵懂，慢条斯理地，把这场辖制看成了一桩有趣的逗弄", line: "主人这样指着我，是想我听话？(笑) 可您越是这样，我越想瞧瞧，您舍不舍得真抽下去。要不，您试试看？" },
-      ]
-    },
-    '三二一不许动': {
-      versions: [
-        { narration: "带子收紧的瞬间，席恩偏头看你，眼里没有半分狼狈。他慢慢笑了，倒像嫌捆得太松了", line: "如此大费周章，惩罚可要更重一些才好呢。您说是不是，主人？" },
-        { narration: "席恩跪得笔直，肩线绷着，没有半分塌下去的意思。被缚的人本该认命，他偏抬眼挑衅，像一头被锁住却仍亮着爪的兽", line: "好了好了这下坏了^^动不了了呢…只是，要跪多久，您总得给个时限才好" },
-        { narration: "带子勒进衬衫的褶皱里，席恩偏头带笑。他竟乐得借这道束缚，把您引到伸手可及的近处", line: "主人捆得倒认真，可惜在下看不到呢。主人打的结，一定也是世界上最最精致的吧" },
       ]
     },
   },
@@ -2697,36 +2679,16 @@ function setCardFace(idx) {
   if (tip) tip.textContent = idx === 1 ? '轻点卡片 · 翻回正面' : '轻点卡片 · 查看背面';
 }
 
-/* 收藏卡左右滑动：左滑→背面，右滑→正面；轻触也可切换 */
+/* 收藏卡：轻触整张卡片即在正/背面之间 3D 翻面（点击切换，无需滑动） */
 function setupCardSwipe() {
   const flip = $('#cardFlip');
   const vp = flip && flip.querySelector('.cs-viewport');
   if (!vp) return;
-  let x0 = null, y0 = null, moved = false;
-  const start = (x, y) => { x0 = x; y0 = y; moved = false; };
-  const move = (x, y) => {
-    if (x0 === null) return;
-    if (Math.abs(x - x0) > 8 || Math.abs(y - y0) > 8) moved = true;
-  };
-  const end = (x, y) => {
-    if (x0 === null) return;
-    const dx = x - x0, dy = y - y0;
-    // 横向位移足够、且明显大于纵向 → 判定为左右滑动
-    if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
-      setCardFace(dx < 0 ? 1 : 0); // 左滑看背面，右滑回正面
-    } else if (!moved) {
-      setCardFace(flip.classList.contains('flipped') ? 0 : 1); // 轻触：在两面间切换
-    }
-    x0 = y0 = null;
-  };
-  vp.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-  vp.addEventListener('touchmove',  e => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-  vp.addEventListener('touchend',   e => { const t = e.changedTouches[0]; end(t.clientX, t.clientY); });
-  // 桌面端鼠标拖拽
-  vp.addEventListener('mousedown', e => start(e.clientX, e.clientY));
-  vp.addEventListener('mousemove', e => move(e.clientX, e.clientY));
-  vp.addEventListener('mouseup',   e => end(e.clientX, e.clientY));
-  vp.addEventListener('mouseleave', () => { x0 = y0 = null; });
+  vp.style.cursor = 'pointer';
+  // 轻触/点击：在两面间切换（正面 0 ↔ 背面 1）
+  vp.addEventListener('click', () => {
+    setCardFace(flip.classList.contains('flipped') ? 0 : 1);
+  });
 }
 
 /* AI 不可用时的本地兜底定制卡片：仍按本局数值动态生成，避免千篇一律 */
@@ -2820,6 +2782,34 @@ function showConfirm(text, okLabel, cancelLabel) {
   });
 }
 
+/* ---------- 背景音乐（暧昧回声，循环 + 可静音） ----------
+   浏览器禁止无交互自动播放，故首次任意点击/触摸后开始播放；
+   右下角圆钮可随时静音/恢复。 */
+function initBGM() {
+  const el = $('#bgm'), btn = $('#bgmToggle');
+  if (!el || !btn) return;
+  el.volume = 0.42;
+  let muted = false, started = false;
+  const play = () => {
+    if (muted) return;
+    const p = el.play(); if (p && p.catch) p.catch(() => {});
+    started = true; btn.classList.remove('hint');
+  };
+  // 首次用户交互即尝试播放（绕过自动播放限制）
+  const kick = () => { if (!started && !muted) play(); };
+  document.addEventListener('click', kick);
+  document.addEventListener('touchstart', kick, { passive: true });
+  // 静音开关（阻止冒泡，避免误触发游戏内的“轻点继续”）
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    muted = !muted;
+    btn.classList.toggle('muted', muted);
+    btn.classList.remove('hint');
+    if (muted) { el.pause(); }
+    else { const p = el.play(); if (p && p.catch) p.catch(() => {}); started = true; }
+  });
+}
+
 /* ---------- 事件绑定 ---------- */
 window.addEventListener('DOMContentLoaded', () => {
   initStars($('#stars'));
@@ -2839,8 +2829,9 @@ window.addEventListener('DOMContentLoaded', () => {
     newSession();                  // 再来一局也算新会话
     showScreen('screen-start');
   };
-  // 收藏卡：左右滑动切换正/背面（点击也可切换作为后备）
+  // 收藏卡：轻触整张卡片翻面（正/背面切换）
   setupCardSwipe();
+  initBGM(); // 背景音乐（首次交互后播放，可静音）
   $('#btnBack').onclick = async () => {
     const ok = await showConfirm('今夜的游戏还未尽兴，确定要离开吗？', '狠心离开', '再玩一会');
     if (ok) {
