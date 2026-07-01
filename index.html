@@ -84,8 +84,8 @@ body{ display:flex; align-items:center; justify-content:center; }
 /* ===== 立绘 =====
    背景下移到 center 30%：让席恩的脸落在顶栏下方的开阔区，避免被顶部状态栏/进度药丸挡住。
    遮罩起点下移到 46%：底部对话区的压暗渐变不再吃到脸部。 */
-.portrait{ position:absolute; inset:0; z-index:2; background-size:cover; background-position:center 30%; transition:opacity .45s ease;}
-.portrait.switching{ opacity:0;}
+.portrait{ position:absolute; inset:0; z-index:2; background-size:cover; background-position:center 30%; opacity:0; transition:opacity .5s ease;}
+.portrait.top{ z-index:3; opacity:1;}
 .portrait-shade{ position:absolute; inset:0; z-index:3; background:linear-gradient(to bottom, rgba(14,8,20,0) 46%, rgba(14,8,20,.5) 66%, rgba(10,6,16,.96) 90%);}
 /* 顶栏加一层从上到下的淡渐变背景，让状态栏区域与立绘自然过渡，避免药丸“糊”在脸上 */
 .topbar{ background:linear-gradient(to bottom, rgba(10,6,8,.55), rgba(10,6,8,0));}
@@ -507,7 +507,8 @@ body{ display:flex; align-items:center; justify-content:center; }
       </header>
 
       <!-- 立绘层 -->
-      <div class="portrait" id="portrait" style="background-image:url('assets/xien.png')"></div>
+      <div class="portrait top" id="portrait" style="background-image:url('assets/xien.png')"></div>
+      <div class="portrait" id="portraitB" style="background-image:url('assets/xien.png')"></div>
       <div class="portrait-shade"></div>
 
       <!-- 对话/旁白区 -->
@@ -956,6 +957,8 @@ const PORTRAITS = {
 };
 
 let _currentPortrait = 'xien.png';
+let _topPortraitId = 'portrait'; // 当前显示在最上层（可见）的立绘图层 id，另一层用于预铺下一张图
+function _otherPortraitId() { return _topPortraitId === 'portrait' ? 'portraitB' : 'portrait'; }
 
 /* 切换立绘到指定场景。scene 为 PORTRAITS 的键；找不到图则保持/回退默认。 */
 /* 按场景挑一张立绘文件名：多图时随机，且尽量避开当前正在展示的那张 */
@@ -969,50 +972,71 @@ function pickPortrait(scene = 'default') {
   return rand(candidates);
 }
 
+/* 预加载并尽量把图片「完整解码」好再回调：decode() 会把耗时的图片解码丢到独立线程/合成阶段处理，
+   避免第一次把大图贴上 background-image 时，浏览器在主线程同步解码造成的卡顿/掉帧感。
+   不支持 decode() 的环境自动退回到 onload。 */
+function _preloadPortrait(url, onReady, onFail) {
+  const img = new Image();
+  img.src = url;
+  if (img.decode) {
+    img.decode().then(onReady).catch(() => { img.onload = onReady; img.onerror = onFail; });
+  } else {
+    img.onload = onReady;
+    img.onerror = onFail;
+  }
+}
+
 function setPortrait(scene = 'default') {
   const file = pickPortrait(scene);
   const url = 'assets/' + file;
-  // 预加载，加载成功才切换；失败则回退默认图
-  const img = new Image();
-  img.onload = () => applyPortrait(url, file);
-  img.onerror = () => {
-    if (file !== 'xien.png') applyPortrait('assets/xien.png', 'xien.png');
-  };
-  img.src = url;
+  _preloadPortrait(url,
+    () => applyPortrait(url, file),
+    () => { if (file !== 'xien.png') applyPortrait('assets/xien.png', 'xien.png'); }
+  );
 }
 
-/* 即时换图：预加载完成后「直接」贴图、不做淡入淡出（用于剧情黑幕仍遮挡时提前换好剧情立绘）。
+/* 即时换图：预加载解码完成后「直接」贴图、不做交叉淡出（用于剧情黑幕仍遮挡时提前换好剧情立绘）。
    返回 Promise，调用方应在移除黑幕前 await，确保黑幕一散开就直接是剧情图，而非先闪旧图。 */
 function setPortraitInstant(scene = 'default') {
   return new Promise(resolve => {
     const file = pickPortrait(scene);
+    const url = 'assets/' + file;
     const apply = (u, f) => {
-      const el = $('#portrait');
-      if (el) {
-        _currentPortrait = f;
-        el.classList.remove('switching'); // 取消可能残留的淡出态
-        el.style.backgroundImage = `url('${u}')`;
+      _currentPortrait = f;
+      const topEl = $('#' + _topPortraitId);
+      const otherEl = $('#' + _otherPortraitId());
+      if (topEl) {
+        topEl.style.transition = 'none';       // 黑幕遮挡中，直接贴图不需要动画
+        topEl.style.backgroundImage = `url('${u}')`;
+        if (otherEl) otherEl.style.backgroundImage = `url('${u}')`; // 同步铺好另一层，避免下次交叉淡出时先闪出更旧的图
+        requestAnimationFrame(() => { topEl.style.transition = ''; });
       }
       resolve();
     };
-    const url = 'assets/' + file;
-    const img = new Image();
-    img.onload = () => apply(url, file);
-    img.onerror = () => { if (file !== 'xien.png') apply('assets/xien.png', 'xien.png'); else resolve(); };
-    img.src = url;
+    _preloadPortrait(url,
+      () => apply(url, file),
+      () => { if (file !== 'xien.png') apply('assets/xien.png', 'xien.png'); else resolve(); }
+    );
   });
 }
 
+/* 用两张立绘图层做交叉淡出淡入：新图（此时已经预加载并 decode 完毕，贴上去不会有解码卡顿）
+   先在底下的隐藏层铺好，再切换 class 让浏览器用 CSS transition 把它渐显、同时把当前顶层渐隐，
+   视觉上是一次平滑的过渡，而不是原来「一帧硬切」造成的卡顿感。 */
 function applyPortrait(url, file) {
   if (file === _currentPortrait) return;
-  const el = $('#portrait');
-  if (!el) return;
   _currentPortrait = file;
-  // 直接切到新图：图片已在 setPortrait 里用 new Image() 预加载命中缓存，
-  // 因此无需再「先淡出旧图、220ms 后才换」——那正是玩家点完后「先看到原来的图片、
-  // 再慢慢变成剧情图」的根因。这里一次性贴上新图，点完即直接是剧情对应立绘。
-  el.classList.remove('switching');        // 清掉可能残留的淡出态
-  el.style.backgroundImage = `url('${url}')`;
+  const topEl = $('#' + _topPortraitId);
+  const nextId = _otherPortraitId();
+  const nextEl = $('#' + nextId);
+  if (!topEl || !nextEl) return;
+  nextEl.style.backgroundImage = `url('${url}')`;
+  // 等一帧再触发过渡，确保新背景图已经被渲染引擎接手（图片早已 decode 完毕，这里不会卡顿）
+  requestAnimationFrame(() => {
+    nextEl.classList.add('top');
+    topEl.classList.remove('top');
+    _topPortraitId = nextId;
+  });
 }
 
 /* 回到默认立绘（平时态） */
